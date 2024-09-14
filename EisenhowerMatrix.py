@@ -66,7 +66,8 @@ def getTasks(main_window):
     api = TodoistAPI("0206e65b4253a59d9f888338dea26270cae3cd4c")
     try:
         tasks = api.get_tasks()
-        tasks_message = "\n".join([task.content for task in tasks])
+        # handle_tasks
+        tasks_message = str(tasks[-1].labels[0])
         main_window.showError(tasks_message)
     except Exception as error:
         main_window.showError(str(error))
