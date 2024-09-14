@@ -1,6 +1,7 @@
-#! ./.venv/bin/python
 """This module implements the Eisenhower Matrix GUI and integrates with Todoist API."""
+
 import sys
+from requests.exceptions import HTTPError
 from todoist_api_python.api import TodoistAPI
 from PySide6.QtGui import Qt
 from PySide6.QtWidgets import (
@@ -14,7 +15,6 @@ from PySide6.QtWidgets import (
 )
 
 
-# pylint: disable=R0903
 class MainWindow(QWidget):
     """Main window for the Eisenhower Matrix application."""
 
@@ -72,6 +72,7 @@ class MainWindow(QWidget):
         Args:
             message (str): The error message to be displayed.
         """
+        message = str(message)
         self.error_popup.showMessage(message)
 
 
@@ -86,11 +87,11 @@ def get_tasks(main_window):
         tasks = api.get_tasks()
         tasks_message = str(tasks[-1].labels[0])
         main_window.show_error(tasks_message)
-    except Exception as error:
-        main_window.show_error(str(error))
+        for task in tasks:
+            main_window.ui_elements["list_widgets"][(0, 0)].addItem(task.content)
+    except HTTPError as error:
+        main_window.show_error(error)
         print(error)
-    for task in tasks:
-        main_window.list_widgets[(0, 0)].addItem(task.content)
 
 
 if __name__ == "__main__":

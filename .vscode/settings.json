@@ -3,5 +3,6 @@
   "python.testing.pytestEnabled": false,
   "python.testing.unittestEnabled": true,
   "python.testing.pytestArgs": ["."],
-  "pylint.args": ["--extension-pkg-whitelist=PySide6"]
+  "pylint.args": ["--extension-pkg-whitelist=PySide6"],
+  "pylint.importStrategy": "fromEnvironment"
 }
