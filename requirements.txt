@@ -1,3 +1,4 @@
-PySide6==6.7.2
-PySide6_Addons==6.7.2
-todoist_api_python==2.1.7
+PySide6
+PySide6_Addons
+todoist_api_python
+keyring
