@@ -46,9 +46,9 @@ class APIKeyPrompt(QDialog):
 
     def save_api_key(self):
         """Saves the API key to the keyring"""
-        api_key = self.api_key_input.text()
-        if api_key:
-            keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, api_key)
+        todoist_api_key = self.api_key_input.text()
+        if todoist_api_key:
+            keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, todoist_api_key)
             self.accept()
 
 
@@ -109,7 +109,8 @@ class CentralWidget(QWidget):
         self.layout.addLayout(self.grid_layout)
 
         button = QPushButton("Refresh")
-        button.clicked.connect(lambda: get_tasks(api_key, self))
+        todoist_api_key = fetch_or_prompt_api_key()
+        button.clicked.connect(lambda: get_tasks(todoist_api_key, self))
         self.layout.addWidget(button)
 
         self.setLayout(self.layout)
@@ -145,14 +146,14 @@ def fetch_or_prompt_api_key():
     return todoist_api_key
 
 
-def get_tasks(api_key, central_widget):
+def get_tasks(todoist_api_key, central_widget):
     """Fetches tasks from Todoist and populates the matrix with them.
 
     Args:
         central_widget (CentralWidget): The main window object where tasks will be added.
     """
     # api = TodoistAPI("0206e65b4253a59d9f888338dea26270cae3cd4c")
-    api = TodoistAPI(api_key)
+    api = TodoistAPI(todoist_api_key)
     try:
         tasks = api.get_tasks()
 
