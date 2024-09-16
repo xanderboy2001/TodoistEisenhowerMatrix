@@ -1,6 +1,8 @@
+#!./.venv/bin/python
 """This module implements the Eisenhower Matrix GUI and integrates with Todoist API."""
 
 import sys
+import keyring
 from requests.exceptions import HTTPError
 from todoist_api_python.api import TodoistAPI
 from PySide6.QtGui import Qt
@@ -12,11 +14,55 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QErrorMessage,
+    QMainWindow,
+    QPushButton,
+    QDialog,
+    QLineEdit,
 )
 
+KEYRING_SERVICE = "TodoistAPI"
+KEYRING_USERNAME = "default_user"
 
-class MainWindow(QWidget):
+
+class APIKeyPrompt(QDialog):
+    """Dialog to prompt user for Todoist API key."""
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Enter Todoist API Key")
+
+        self.layout = QVBoxLayout()
+        self.label = QLabel("Please enter your Todoist API Key:")
+        self.layout.addWidget(self.label)
+
+        self.api_key_input = QLineEdit(self)
+        self.layout.addWidget(self.api_key_input)
+
+        self.submit_button = QPushButton("Submit")
+        self.submit_button.clicked.connect(self.save_api_key)
+        self.layout.addWidget(self.submit_button)
+
+        self.setLayout(self.layout)
+
+    def save_api_key(self):
+        """Saves the API key to the keyring"""
+        api_key = self.api_key_input.text()
+        if api_key:
+            keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, api_key)
+            self.accept()
+
+
+class MainWindow(QMainWindow):
     """Main window for the Eisenhower Matrix application."""
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Eisenhower Matrix")
+        self.setCentralWidget(CentralWidget())
+
+
+class CentralWidget(QWidget):
+    """Central Widget"""
 
     def __init__(self):
         """Initializes the main window with a grid of quadrants and a title."""
@@ -35,9 +81,9 @@ class MainWindow(QWidget):
 
         self.quads = (
             "Urgent/Important",
-            "Urgent/Unimportant",
+            "Urgent/Not Important",
             "Not Urgent/Important",
-            "Not Urgent/ Not Important",
+            "Not Urgent/Not Important",
         )
 
         self.title = QLabel("Eisenhower Matrix")
@@ -62,6 +108,10 @@ class MainWindow(QWidget):
 
         self.layout.addLayout(self.grid_layout)
 
+        button = QPushButton("Refresh")
+        button.clicked.connect(lambda: get_tasks(api_key, self))
+        self.layout.addWidget(button)
+
         self.setLayout(self.layout)
 
         self.error_popup = QErrorMessage()
@@ -76,28 +126,62 @@ class MainWindow(QWidget):
         self.error_popup.showMessage(message)
 
 
-def get_tasks(main_window):
+def get_stored_api_key():
+    """Retrieves the stored API key from keyring"""
+    return keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
+
+
+def fetch_or_prompt_api_key():
+    """Fetches API key from keyring or prompts the user if not available"""
+    todoist_api_key = get_stored_api_key()
+
+    if not todoist_api_key:
+        dialog = APIKeyPrompt()
+        if dialog.exec():
+            todoist_api_key = get_stored_api_key()
+        else:
+            sys.exit()
+
+    return todoist_api_key
+
+
+def get_tasks(api_key, central_widget):
     """Fetches tasks from Todoist and populates the matrix with them.
 
     Args:
-        main_window (MainWindow): The main window object where tasks will be added.
+        central_widget (CentralWidget): The main window object where tasks will be added.
     """
-    api = TodoistAPI("0206e65b4253a59d9f888338dea26270cae3cd4c")
+    # api = TodoistAPI("0206e65b4253a59d9f888338dea26270cae3cd4c")
+    api = TodoistAPI(api_key)
     try:
         tasks = api.get_tasks()
-        tasks_message = str(tasks[-1].labels[0])
-        main_window.show_error(tasks_message)
+
+        for (i, j), list_widget in central_widget.ui_elements["list_widgets"].items():
+            list_widget.clear()
+
         for task in tasks:
-            main_window.ui_elements["list_widgets"][(0, 0)].addItem(task.content)
+            task_labels = task.labels
+
+            for label in task_labels:
+                if label in central_widget.quads:
+                    quad_index = central_widget.quads.index(label)
+
+                    i, j = divmod(quad_index, 2)
+                    central_widget.ui_elements["list_widgets"][(i, j)].addItem(
+                        task.content
+                    )
+
     except HTTPError as error:
-        main_window.show_error(error)
+        central_widget.show_error(error)
         print(error)
 
 
 if __name__ == "__main__":
     # Run the application
     app = QApplication(sys.argv)
+    api_key = fetch_or_prompt_api_key()
+    keyring.set_password("TodoistAPI", "EisenhowerMatrix", api_key)
     window = MainWindow()
     window.show()
-    get_tasks(window)
+    get_tasks(api_key, window.centralWidget())
     sys.exit(app.exec())
